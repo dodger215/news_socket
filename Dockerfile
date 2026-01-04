@@ -4,6 +4,8 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y \
     curl \
     ca-certificates \
+    wget \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv via pip
@@ -18,12 +20,12 @@ COPY pyproject.toml uv.lock ./
 # Install dependencies
 RUN uv sync --frozen --no-dev
 
+# Install Playwright and its browsers properly
+RUN python -m playwright install chromium
+RUN python -m playwright install-deps chromium
+
 # Copy application source
 COPY . .
-
-# Install Playwright browsers
-RUN playwright install chromium
-RUN playwright install-deps chromium
 
 # Expose Fly.io port
 EXPOSE 8080
