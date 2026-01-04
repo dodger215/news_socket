@@ -21,6 +21,10 @@ RUN uv sync --frozen --no-dev
 # Copy application source
 COPY . .
 
+# Install Playwright browsers
+RUN playwright install chromium
+RUN playwright install-deps chromium
+
 # Expose Fly.io port
 EXPOSE 8080
 

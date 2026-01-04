@@ -4,26 +4,65 @@ from typing import List, Optional
 from models import Headline, ArticleDetail, LiveTV
 import asyncio
 from playwright.async_api import async_playwright
+import logging
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://3news.com"
 
 async def get_soup(url: str):
+    logger.info(f"Fetching URL: {url}")
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # For hosted environments, use the system Chrome if available
+        try:
+            browser = await p.chromium.launch(
+                headless=True,
+                # Add these arguments for better compatibility
+                args=['--disable-dev-shm-usage', '--no-sandbox']
+            )
+        except Exception as e:
+            print(f"Error launching browser: {e}")
+            # Fallback to using system Chrome
+            browser = await p.chromium.launch(
+                headless=True,
+                channel='chrome',  # Use system Chrome
+                args=['--disable-dev-shm-usage', '--no-sandbox']
+            )
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
         page = await context.new_page()
         try:
             # Increase timeout for slow pages
-            await page.goto(url, wait_until="networkidle", timeout=60000)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
             # Wait for articles or some content to load
-            await page.wait_for_selector("article, .post-item, section.bg-white", timeout=10000)
+            await page.wait_for_selector("article, .post-item, section.bg-white", timeout=15000)
         except Exception as e:
             print(f"Playwright wait error for {url}: {e}")
+            # Try to get content anyway
+            try:
+                await page.wait_for_timeout(2000)  # Small delay
+            except:
+                pass
+            
+        try:
+            content = await page.content()
+        except Exception as e:
+            print(f"Error getting page content for {url}: {e}")
+            # Fallback to simple HTTP request if Playwright fails
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(url)
+                    return BeautifulSoup(response.text, "html.parser")
+            except Exception as http_error:
+                print(f"HTTP fallback also failed for {url}: {http_error}")
+                return BeautifulSoup("<html></html>", "html.parser")  # Return empty soup
             
         content = await page.content()
         await browser.close()
+        logger.info(f"Successfully fetched {url}")
         return BeautifulSoup(content, "html.parser")
 
 async def scrub_headlines(category: str) -> List[Headline]:
