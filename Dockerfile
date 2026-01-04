@@ -6,8 +6,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install uv via pip
+RUN pip install uv
 
 # Set workdir
 WORKDIR /app
@@ -15,8 +15,8 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies (USE FULL PATH)
-RUN /root/.cargo/bin/uv sync --frozen --no-dev
+# Install dependencies
+RUN uv sync --frozen --no-dev
 
 # Copy application source
 COPY . .
@@ -24,5 +24,5 @@ COPY . .
 # Expose Fly.io port
 EXPOSE 8080
 
-# Run FastAPI (USE FULL PATH)
-CMD ["/root/.cargo/bin/uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+# Run FastAPI
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
