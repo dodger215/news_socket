@@ -26,17 +26,19 @@ RUN apt-get update && apt-get install -y \
     chromium-driver \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv via pip
+RUN pip install uv
+
 # Set workdir
 WORKDIR /app
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY pyproject.toml uv.lock ./
 
-# Install dependencies using pip
-RUN pip install --no-cache-dir -r <(grep -E '^dependencies' -A 100 pyproject.toml | grep -E '^\s*"' | sed 's/"//g' | sed 's/,//g')
-
-# Install Playwright browsers
-RUN python -m playwright install chromium
+# Install dependencies and Playwright browsers in one step
+RUN uv sync --frozen --no-dev && \
+    # Use the Python from the virtual environment
+    /app/.venv/bin/python -m playwright install chromium
 
 # Copy application source
 COPY . .
@@ -45,4 +47,4 @@ COPY . .
 EXPOSE 8080
 
 # Run FastAPI
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
